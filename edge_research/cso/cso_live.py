@@ -6,7 +6,7 @@ A question is a chain of clauses separated by ';'. Clauses run left to right on 
 seen); state clauses only filter. Outcomes are measured from the bar after the final anchor, and a level that was ALREADY touched
 before the anchor is not counted as a hit: that day is set aside for that outcome and the share set aside is printed as a warning.
 
-  python -I cso_live.py --serve                       the watcher: grid in memory, a live read every minute (6 PM-4 PM CT) into
+  python -I cso_live.py --serve                       the watcher: grid in memory, a live read every minute (5 PM-4 PM CT) into
                                                        cso/live_latest.txt + .json; --ask / --q / --now use it automatically (~1-3 s)
   python -I cso_live.py --now [--fast] [--draw] [--old]   read the TradingView chart: impulse + fib levels, sweeps, NY context -> answers
                                                        --fast: only the answer rung + the shape rung, one compact table each
@@ -1679,7 +1679,7 @@ def serve(port=PORT):
     def watch():
         while True:
             t0 = ct_now()
-            if not (16 <= t0.hour < 18):  # 6 PM - 4 PM CT (the PC runs on CT)
+            if t0.hour != 16:  # 5 PM - 4 PM CT: the CME reopens at 5 PM, the 4-5 PM break is skipped
                 with lock:
                     _LIVE.clear()
                     out = []
@@ -1710,7 +1710,7 @@ def serve(port=PORT):
                         body = capture(lambda: dispatch(argv))
             elif u.path == '/latest':
                 body = open(LATEST + '.txt', encoding='utf-8').read() if os.path.exists(LATEST + '.txt') else \
-                    'No live read yet (the watcher reads the chart each minute, 6 PM-4 PM CT).'
+                    'No live read yet (the watcher reads the chart each minute, 5 PM-4 PM CT).'
             elif u.path == '/map.json':
                 f = os.path.join(HERE, 'live_map.json')
                 ok = os.path.exists(f)
@@ -1761,7 +1761,7 @@ def serve(port=PORT):
         err = os.path.join(HERE, 'live_map_error.json')
         while True:
             t1 = time.time()
-            if not (16 <= ct_now().hour < 18):
+            if ct_now().hour != 16:
                 try:
                     import poi_live
                     poi_live.tick()

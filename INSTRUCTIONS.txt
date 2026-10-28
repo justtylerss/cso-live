@@ -79,8 +79,8 @@ EVERY TRADING DAY
          odds of asia high
          odds of prior day low
      A new question takes about 10 seconds.
-   - LIVE READ: refreshes on its own every 30 seconds, from 6 PM to 4 PM Central.
-     It pauses during the daily 4-6 PM CT break.
+   - LIVE READ: refreshes on its own every 30 seconds, from 5 PM to 4 PM Central.
+     It pauses during the daily 4-5 PM CT break.
 
 All times are Central (CT), whatever time zone your PC is set to.
 

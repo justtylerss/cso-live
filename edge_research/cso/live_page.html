@@ -209,7 +209,7 @@ async function poll(){
 poll(); setInterval(poll,30000); render();
 let mapPrev={};
 function mapRender(d){
-  const h=$('#health'); if(!d||!d.map){h.innerHTML=d&&d.error?`<span class="bad">map error: ${esc(d.error.error)}</span>`:'<span class="bad">no map yet: the watcher reads 6 PM-4 PM CT</span>';return}
+  const h=$('#health'); if(!d||!d.map){h.innerHTML=d&&d.error?`<span class="bad">map error: ${esc(d.error.error)}</span>`:'<span class="bad">no map yet: the watcher reads 5 PM-4 PM CT</span>';return}
   const m=d.map, hh=m.health, stale=(d.age||0)>60;
   h.innerHTML=`<span class="${hh.chart?'good':'bad'}">${hh.chart?'● chart connected':'○ chart not connected'}</span><span class="${stale?'bad':''}">read ${esc(hh.read)} CT${stale?' · '+d.age+' s old':''}</span><span>POIs: ${esc(hh.levels_src)}</span>${hh.stale.map(x=>`<span class="bad">${esc(x)}</span>`).join('')}${d.error?`<span class="bad">last error: ${esc(d.error.error)}</span>`:''}`;
   const sb=$('#sess'); sb.textContent=m.session; const el=$('#px'); if(lastPx!=null&&m.px!=lastPx){el.classList.remove('flash-up','flash-dn');void el.offsetWidth;
