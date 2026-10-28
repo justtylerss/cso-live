@@ -63,6 +63,14 @@ EVERY TRADING DAY
    Keep that chart active. CSO Live reads whichever chart is open in front.
 
 3. On the CSO Live page:
+   - LIVE MAP (top of the page, runs by itself every 15 seconds):
+       a chart with every POI (prior-day POC / value area high and low, prior-day high / low,
+       7-day profile, finished Asia / London / overnight highs and lows, NY VWAP) and, for each,
+       the % chance price reaches it before the session ends, later windows, and the usual time.
+       "How to read this map" explains every number. "If this happens" lists only
+       high-probability follow-ups (65%+ on 30+ past days); a row glows when it happens live.
+       The health line shows whether the chart is connected and when it last read.
+       The first start builds a small history file (about a minute).
    - ASK: type a question and press Enter. Examples:
          odds of new london low
          odds of new high

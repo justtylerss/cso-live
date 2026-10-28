@@ -79,6 +79,28 @@ header::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px
 .up .ring{--c:var(--up);box-shadow:0 0 22px #08998133}.dn .ring{--c:var(--dn);box-shadow:0 0 22px #f2364533}
 .bar i{width:0;transition:width .9s cubic-bezier(.2,.8,.2,1),left .9s}
 .chart img{transition:opacity .4s}.chart img.fade{opacity:.25}
+
+.sec{display:flex;align-items:baseline;gap:12px;margin:26px 0 12px;flex-wrap:wrap}.sec h2{margin:0;font-size:19px;color:#fff;font-weight:800}.sec .sm{flex:1}
+.health{display:flex;flex-wrap:wrap;gap:8px;font-size:12px}.health span{padding:3px 9px;border-radius:999px;background:var(--panel2);border:1px solid var(--line)}
+.health .bad{background:#3a1015;border-color:#6b1a22;color:#ff8a95}.health .good{color:#7fe0c9}
+.map{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(330px,1fr);gap:16px;align-items:start}@media(max-width:1050px){.map{grid-template-columns:1fr}}
+.map img{width:100%;display:block;border-radius:10px;background:#181818}
+.plist{display:flex;flex-direction:column;gap:6px;max-height:640px;overflow:auto;padding-right:4px}
+.poi{display:grid;grid-template-columns:76px 1fr;gap:10px;align-items:center;padding:9px 12px;border-radius:10px;background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--muted);transition:background .3s}
+.poi.up{border-left-color:var(--up)}.poi.dn{border-left-color:var(--dn)}.poi.thin{opacity:.55}.poi.touched .pn::after{content:" · traded through this session";color:var(--dim);font-weight:400;font-size:11px}
+.poi .pp{font:800 30px/1 ui-monospace,Consolas,monospace;text-align:right}.poi.up .pp{color:var(--up)}.poi.dn .pp{color:var(--dn)}
+.poi .pn{font-weight:700;color:#fff;font-size:13.5px}.poi .pd{font:12px ui-monospace,Consolas,monospace;color:var(--muted)}
+.poi .pw{font-size:12px;color:var(--fg);margin-top:2px}.poi .pw b{color:#fff}.poi .pw .g{color:var(--gold)}
+.poi .tag{display:inline-block;font-size:10.5px;padding:0 6px;border-radius:5px;margin-left:6px;vertical-align:1px}
+.tag.t{background:#13284d;color:#9db7ff}.tag.u{background:#262a31;color:var(--muted)}.tag.chg{background:#3a2a07;color:var(--gold);font-weight:700}
+.poi.flash{animation:fl 1.6s ease}@keyframes fl{0%{background:#3a2a07}100%{background:var(--panel)}}
+.two{display:grid;grid-template-columns:1fr 1.3fr;gap:16px;margin-top:16px}@media(max-width:1050px){.two{grid-template-columns:1fr}}
+.how dl{margin:0;display:grid;grid-template-columns:120px 1fr;gap:8px 12px;font-size:13px}.how dt{color:#fff;font-weight:700}.how dd{margin:0;color:var(--fg)}
+.cond{display:flex;flex-direction:column;gap:8px}
+.ci{display:grid;grid-template-columns:70px 1fr;gap:12px;align-items:center;padding:10px 12px;border-radius:10px;background:var(--panel2);border:1px solid var(--line)}
+.ci .cp{font:800 28px/1 ui-monospace,Consolas,monospace;color:var(--gold);text-align:right}.ci .cw{font-size:13.5px;color:#fff}.ci .cs{font-size:12px;color:var(--muted);margin-top:3px}
+.ci.live{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold),0 0 22px #f0b23244;animation:glow 1.8s ease-in-out infinite}@keyframes glow{50%{box-shadow:0 0 0 1px var(--gold),0 0 34px #f0b23266}}
+.livebadge{display:inline-block;background:var(--gold);color:#000;font-weight:800;font-size:10.5px;padding:1px 7px;border-radius:5px;margin-right:6px}
 </style></head>
 <body>
 <header>
@@ -90,13 +112,28 @@ header::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px
   <span class="sm"><span class="dot" id="dot"></span><span id="upd">connecting...</span></span>
 </header>
 <main>
+  <div class="sec"><h2>Live map</h2><span class="sm" id="mapsub">every POI on the chart and the odds price reaches it, refreshed every 15 seconds</span><div class="health" id="health"></div></div>
+  <div class="map"><div class="card"><img id="mapimg" alt="live POI map"></div><div class="plist" id="plist"><div class="card empty">Waiting for the first map read...</div></div></div>
+  <div class="two">
+    <div class="card how"><h3>How to read this map</h3><dl>
+      <dt>Lines</dt><dd>Each line is a POI on your chart. <span style="color:var(--up)">Green</span> = above price, <span style="color:var(--dn)">red</span> = below. Solid = a kind tested on its own history; dashed = untested kind (its odds come from its distance only). Faded = already traded through this session.</dd>
+      <dt>The big %</dt><dd>On past NQ days (2024-26) in the same spot at this clock time, how often price reached that level before the end of the current session. The smaller numbers are later windows (by 4 AM, by 8:29 AM, by 3 PM).</dd>
+      <dt>Usually ~time</dt><dd>The median time it was reached, on the days it was, shown as tonight's clock time.</dd>
+      <dt>n</dt><dd>How many past days the % rests on. Under 15 is thin (faded on the list); under 30, treat lightly.</dd>
+      <dt>Any price this far</dt><dd>The placebo: the same odds for a random price at the same distance, on days with a similar daily range. If the POI's % isn't clearly above it, the level adds nothing beyond its distance.</dd>
+      <dt>Through / back</dt><dd>After price touched the level: how often it went 20 pts through first vs came 20 pts back first (within 60 min).</dd>
+      <dt>11% &rarr; 24%</dt><dd>The % changed since the last read (price moved, time passed, or a level was touched).</dd>
+      <dt>What it isn't</dt><dd>Descriptive odds from history. Not a signal, not a prediction, not advice.</dd></dl></div>
+    <div class="card"><h3>If this happens</h3><div class="sm" style="margin-bottom:10px">Conditional odds that open up if price does something at a nearby POI. Shown only when 65%+ on 30+ past days and at least 5 pts above the odds from right now. A row glows when its trigger happens live.</div><div class="cond" id="cond"></div></div>
+  </div>
+  <div class="sec"><h2>Ask your own question</h2><span class="sm">separate from the map: anything event-shaped, in plain English</span></div>
   <form class="ask" id="f"><input id="q" autocomplete="off" placeholder='Ask in plain English, e.g. "odds of new london low" or "which first .618 or new low"'><button>Ask</button></form>
   <div class="chips" id="chips"></div>
   <div class="loading" id="load"><div class="spin"></div><span>Matching past days... a new question takes about 10 seconds</span></div>
   <div class="tabs"><div class="tab on" data-v="answer" id="t-answer">Your question</div><div class="tab" data-v="live" id="t-live">Live read (auto)</div></div>
   <div id="view"><div class="card empty">Ask a question above, or open the live read.</div></div>
 </main>
-<footer>Descriptive odds: how often past NQ days in the same situation (2024-26) did each thing. Not a signal, not advice. Times are Central (CT).</footer>
+<footer>Live map and answers: 2024-26 1-min NQ history, matched at the same clock time. Descriptive odds: how often past NQ days in the same situation (2024-26) did each thing. Not a signal, not advice. Times are Central (CT).</footer>
 <script>
 const $=s=>document.querySelector(s), esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const pct=p=>p==null?'-':Math.round(p*100)+'%', pts=x=>(x>0?'+':'')+Math.round(x), fmt=x=>Number(x).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -161,15 +198,43 @@ async function ask(){
 }
 $('#f').onsubmit=e=>{e.preventDefault();ask()};
 let lastPx=null;
-function head(v){const el=$('#px'); if(lastPx!=null&&v.px!=lastPx){el.classList.remove('flash-up','flash-dn');void el.offsetWidth;
-  el.classList.add(v.px>lastPx?'flash-up':'flash-dn');setTimeout(()=>el.classList.remove('flash-up','flash-dn'),1500)} lastPx=v.px; el.textContent=fmt(v.px);$('#sess').textContent={asia:'Asia',london:'London',on:'Pre-NY',rth:'NY session'}[v.sess]||v.sess;
+function head(v){ // news badge only: price and session come from the 15 s map
   const n=$('#news'); n.hidden=!v.news; n.textContent=v.news?('News day: '+v.news.toUpperCase()):'';}
 async function poll(){
   try{live=await (await fetch('/view/latest')).json(); $('#dot').classList.add('on');
-    $('#upd').textContent='live read '+(live.age!=null?live.age+' s old':'waiting');
-    if(live.view && (!answer||mode=='live')) head(live.view); if(mode=='live') render();}
+    $('#upd').textContent='live read '+(live.age!=null?live.age+' s old':'waiting'); if(live.view) head(live.view);
+     if(mode=='live') render();}
   catch(e){$('#dot').classList.remove('on');$('#upd').textContent='watcher offline: run start.bat'}
 }
 poll(); setInterval(poll,30000); render();
+let mapPrev={};
+function mapRender(d){
+  const h=$('#health'); if(!d||!d.map){h.innerHTML=d&&d.error?`<span class="bad">map error: ${esc(d.error.error)}</span>`:'<span class="bad">no map yet: the watcher reads 6 PM-4 PM CT</span>';return}
+  const m=d.map, hh=m.health, stale=(d.age||0)>60;
+  h.innerHTML=`<span class="${hh.chart?'good':'bad'}">${hh.chart?'● chart connected':'○ chart not connected'}</span><span class="${stale?'bad':''}">read ${esc(hh.read)} CT${stale?' · '+d.age+' s old':''}</span><span>POIs: ${esc(hh.levels_src)}</span>${hh.stale.map(x=>`<span class="bad">${esc(x)}</span>`).join('')}${d.error?`<span class="bad">last error: ${esc(d.error.error)}</span>`:''}`;
+  const sb=$('#sess'); sb.textContent=m.session; const el=$('#px'); if(lastPx!=null&&m.px!=lastPx){el.classList.remove('flash-up','flash-dn');void el.offsetWidth;
+    el.classList.add(m.px>lastPx?'flash-up':'flash-dn');setTimeout(()=>el.classList.remove('flash-up','flash-dn'),1500)} lastPx=m.px; el.textContent=fmt(m.px);
+  $('#mapsub').textContent=`${m.session} · NQ ${fmt(m.px)} at ${m.at} CT · ${m.n_days} past days at this clock time · big % = ${m.windows[0]||''}`;
+  $('#mapimg').src='/map.png?'+Date.now();
+  $('#plist').innerHTML=m.pois.filter(p=>p.odds.n).map(p=>{
+    const w=p.odds.wins, h=w[0], side=p.dist>0?'up':'dn', thin=p.odds.n<15;
+    const chg=p.prev!=null?`<span class="tag chg">${Math.round(p.prev*100)}% → ${pct(h.p)}</span>`:'';
+    const plc=p.placebo?`any price this far <b>${pct(p.placebo.wins[0].p)}</b>`:'';
+    const aft=p.odds.after?`${plc?' · ':''}after touch ${pct(p.odds.after.through)} through / ${pct(p.odds.after.back)} back`:'';
+    const key=p.name+'|'+p.price, fl=mapPrev[key]!=null&&mapPrev[key]!==h.p; mapPrev[key]=h.p;
+    return `<div class="poi ${side}${thin?' thin':''}${p.touched?' touched':''}${fl?' flash':''}"><div class="pp">${pct(h.p)}</div><div>
+      <div class="pn">${esc(p.name)}<span class="tag ${p.tested?'t':'u'}">${p.tested?'tested kind':'distance only'}</span>${chg}</div>
+      <div class="pd">${fmt(p.price)} · ${pts(p.dist)} pts · ${esc(h.win)} · n ${p.odds.n}${thin?' (thin)':''}</div>
+      <div class="pw">${w.slice(1).map(x=>`<b>${pct(x.p)}</b> ${esc(x.win)}`).join(' · ')}${p.odds.at?` · usually <span class="g">~${esc(p.odds.at)}</span>`:''}</div>
+      ${plc||aft?`<div class="pd">${plc}${aft}</div>`:''}</div></div>`}).join('')||'<div class="card empty">No POIs within reach.</div>';
+  const c=m.cond||[];
+  $('#cond').innerHTML=c.length?c.map(r=>`<div class="ci${r.live?' live':''}"><div class="cp">${pct(r.p)}</div><div>
+      <div class="cw">${r.live?'<span class="livebadge">HAPPENING NOW</span>':''}If price ${esc(r.trig_words)} <b>${esc(r.x)}</b> (${fmt(r.x_price)}) → reaches <b>${esc(r.y)}</b> (${fmt(r.y_price)}) ${esc(r.win)}</div>
+      <div class="cs">${r.n} past days · 80% range ${Math.round(r.ci[0]*100)}-${Math.round(r.ci[1]*100)}% · vs ${pct(r.base)} from right now${r.t!=null?` · usually ${Math.round(r.t)} min after the trigger`:''}${r.y26?` · 2026: ${pct(r.y26.p)} of ${r.y26.n}`:' · 2026: no days'}</div></div></div>`).join('')
+    :'<div class="empty" style="padding:16px">Nothing qualifies right now. Rows appear when a nearby POI has a high-probability follow-through (65%+ on 30+ days, above the odds from now).</div>';
+}
+async function mapPoll(){try{mapRender(await (await fetch('/map.json')).json())}catch(e){$('#health').innerHTML='<span class="bad">watcher offline: run start.bat</span>'}}
+mapPoll(); setInterval(mapPoll,15000);
+
 </script>
 </body></html>

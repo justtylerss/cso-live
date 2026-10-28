@@ -1711,8 +1711,16 @@ def serve(port=PORT):
             elif u.path == '/latest':
                 body = open(LATEST + '.txt', encoding='utf-8').read() if os.path.exists(LATEST + '.txt') else \
                     'No live read yet (the watcher reads the chart each minute, 6 PM-4 PM CT).'
-            elif u.path in ('/latest.png', '/answer.png'):
-                f = LATEST + '.png' if u.path == '/latest.png' else ANSWER_PNG
+            elif u.path == '/map.json':
+                f = os.path.join(HERE, 'live_map.json')
+                ok = os.path.exists(f)
+                d = json.load(open(f, encoding='utf-8')) if ok else None
+                ef = os.path.join(HERE, 'live_map_error.json')
+                err = json.load(open(ef)) if os.path.exists(ef) and (not ok or os.path.getmtime(ef) > os.path.getmtime(f)) else None
+                body = json.dumps(dict(map=d, age=int(time.time() - os.path.getmtime(f)) if ok else None, error=err), default=_js)
+                kind = 'application/json'
+            elif u.path in ('/latest.png', '/answer.png', '/map.png'):
+                f = {'/latest.png': LATEST + '.png', '/answer.png': ANSWER_PNG, '/map.png': os.path.join(HERE, 'live_map.png')}[u.path]
                 b = open(f, 'rb').read() if os.path.exists(f) else b''
                 self.send_response(200 if b else 404)
                 self.send_header('Content-Type', 'image/png')
@@ -1748,7 +1756,22 @@ def serve(port=PORT):
             self.end_headers()
             self.wfile.write(b)
 
+    def watch_map():  # the live POI map: every 15 s off the forming bar (poi_live.py)
+        import traceback
+        err = os.path.join(HERE, 'live_map_error.json')
+        while True:
+            t1 = time.time()
+            if not (16 <= ct_now().hour < 18):
+                try:
+                    import poi_live
+                    poi_live.tick()
+                except BaseException as e:   # never let the thread die quietly: the page shows the last error
+                    json.dump(dict(error=f'{type(e).__name__}: {e}', at=ct_now().strftime('%I:%M:%S %p'),
+                                   trace=traceback.format_exc()[-1500:]), open(err, 'w'))
+            time.sleep(max(1, 15 - (time.time() - t1)))
+
     threading.Thread(target=watch, daemon=True).start()
+    threading.Thread(target=watch_map, daemon=True).start()
     print(f'CSO watcher on http://127.0.0.1:{port}  (live read every minute -> {LATEST}.txt / .json)')
     ThreadingHTTPServer(('127.0.0.1', port), H).serve_forever()
 
