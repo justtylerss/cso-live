@@ -1278,7 +1278,7 @@ def now(at=None, q_text=None, draw_it=False, fast=False, out=None):
         except Exception as e:  # one bad question must not blank the whole read
             print(f'   (skipped: {type(e).__name__}: {e})')
             continue
-        first = first or (q, r)
+        first = first or (q, r, title)
         if out is not None:
             ans = answer_rung(r)
             out.append(dict(title=title, q=q, rung=ans['label'], n=ans['n'],
@@ -1288,7 +1288,144 @@ def now(at=None, q_text=None, draw_it=False, fast=False, out=None):
     print('\nDescriptive odds from matched past days, not a signal.')
     if draw_it and st.get('imp') and first:
         draw(st, first[1])
+    if first:
+        try:
+            png = LATEST + '.png' if out is not None else ANSWER_PNG
+            chart(st, lv, m, *first, png)
+            print(f'Chart: {png}')
+        except Exception as e:
+            print(f'(chart skipped: {type(e).__name__}: {e})')
     return st
+
+
+# ---------------------------------------------------------------- the chart picture: today's bars + every level the answer measured
+ANSWER_PNG = os.path.join(HERE, 'answer.png')
+NAMES = {'asia': 'Asia', 'london': 'London', 'on': 'Overnight', 'rth': 'NY', 'ib': 'IB', 'fb': 'First 15-min bar', 'pm': 'NY PM'}
+
+
+def level_name(tok):
+    """'london_lo' -> 'London low', 'I.r0.5' -> '0.5 retrace', 'I.top' -> 'impulse extreme'"""
+    tok = re.sub(r'[+-]\d+(\.\d+)?$', '', tok)
+    if tok.startswith('I.r'):
+        return f'{tok[3:]} retrace'
+    if tok == 'I.top':
+        return 'past the impulse extreme'
+    fixed = {'pdh': 'Prior-day high', 'pdl': 'Prior-day low', 'pdc': 'Prior-day close', 'open': '8:30 open', 'vwap': 'VWAP'}
+    if tok in fixed:
+        return fixed[tok]
+    s, _, side = tok.rpartition('_')
+    return f'{NAMES.get(s, s)} {"high" if side == "hi" else "low"}' if side in ('hi', 'lo') else tok
+
+
+def chart_rows(rungs, today, a):
+    """one entry per price level: name, the measured odds rows (% / window / median time), and how far it ran past on days it hit"""
+    S = summarize(answer_rung(rungs)['df'])
+    L = {}
+    for s in S:
+        lab, tp = s['out'], (today or {}).get(s['out'], '')
+        if not tp or 'already past' in tp or not s['n']:
+            continue
+        m = re.match(r'hit (\S+) (.+)', lab) or re.match(r'retrace (\S+) of \S+ (.+)', lab) or re.match(r'race: (.+) first', lab)
+        if not m:
+            continue
+        if lab.startswith('hit'):
+            name, win = level_name(m.group(1)), m.group(2)
+        elif lab.startswith('retrace'):
+            name, win = f'{m.group(1)} retrace', m.group(2)
+        else:
+            side = m.group(1).split()
+            name, win = (f'{side[-1]} retrace' if side[0] == 'retrace' else level_name(side[-1])), 'reached first'
+        p = float(tp.split()[0])
+        e = L.setdefault(round(p * 4) / 4, dict(name=name, rows=[], dep=None))
+        t = float(s['mins'].median()) if len(s['mins']) else None
+        w = re.match(r'within (\d+)', win)
+        end = a + int(w.group(1)) if w else tmin(win[3:]) if win.startswith('by ') else 9999
+        e['rows'].append(dict(win=win, end=end, p=s['k'] / s['n'], n=s['n'], t=t, at=clock(a + t) if t is not None else None))
+        if len(s['dep']) >= 5 and (e['dep'] is None or win == 'within 60 min'):  # 'how far past' over the next hour when we have it
+            e['dep'] = (win, s['dep'].median(), s['dep'].quantile(.25), s['dep'].quantile(.75))
+    return L
+
+
+def chart(st, lv, m, q, rungs, title, path, W=150):
+    """clean markup: bars up to now, then one line per measured level with its odds and timing. Measured numbers only."""
+    import matplotlib
+    matplotlib.use('Agg')
+    from matplotlib.figure import Figure
+    BG, FG, MUTED, GRIDC, UP, DN = '#181818', '#d1d4dc', '#808080', '#242424', '#089981', '#f23645'
+    a = m - 1
+    d = Day(lv, len(lv.days) - 1)
+    ctx, today, _ = today_ctx(lv, *parse(q), st.get('over') if ' as I' in q else None, a)
+    L = chart_rows(rungs, today, a)
+    s0 = max(0, a - W + 1)
+    x = np.arange(s0, a + 1)
+    O, H, Lo, C = (lv.O[-1][s0:a + 1], d.H[s0:a + 1], d.L[s0:a + 1], d.C[s0:a + 1])
+    fig = Figure(figsize=(13, 7), facecolor=BG)
+    ax = fig.add_axes([0.04, 0.08, 0.6, 0.8], facecolor=BG)
+    for xi, o, h, l, c in zip(x, O, H, Lo, C):
+        if np.isnan(c):
+            continue
+        col = '#b8b8b8' if c >= o else '#5a5a5a'
+        ax.vlines(xi, l, h, color=col, lw=0.8)
+        ax.vlines(xi, min(o, c), max(o, c) + 0.01, color=col, lw=2.6)
+    px = st['px']
+    i = st.get('imp')
+    if i:  # the impulse the odds are measured from
+        ax.plot([i['b'], i['top']], [i['basev'], i['topv']], color=MUTED, lw=1, ls=':')
+    fut = 70  # minutes of empty space after now, where the lines run
+    ax.axvline(a, color=MUTED, lw=0.8, ls='--')
+    ax.text(a, 1.01, f' now {clock(a)}', transform=ax.get_xaxis_transform(), color=MUTED, fontsize=9)
+    ax.axhline(px, color=FG, lw=0.6)
+    ax.text(a + fut, px, f'{px:,.2f} now ', color=FG, fontsize=8.5, ha='right', va='bottom')
+    ys = [px] + [p for p in L] + list(H[~np.isnan(H)]) + list(Lo[~np.isnan(Lo)])
+    lo_y, hi_y = min(ys), max(ys)
+    pad = (hi_y - lo_y) * 0.06 or 5
+    ax.set_ylim(lo_y - pad, hi_y + pad)
+    ax.set_xlim(s0, a + fut)
+    ticks = [t for t in range(s0, a + fut, 30) if t % 30 == 0]
+    ax.set_xticks(ticks, [clock(t) for t in ticks])
+    ax.tick_params(colors=MUTED, labelsize=9)
+    ax.yaxis.tick_right()
+    for sp in ax.spines.values():
+        sp.set_visible(False)
+    ax.grid(color=GRIDC, lw=0.6)
+    # labels: one block per level, in a right panel, spread so they never overlap, joined to their line
+    side = fig.add_axes([0.66, 0.08, 0.33, 0.8], facecolor=BG, sharey=ax)
+    side.axis('off')
+    side.set_xlim(0, 1)
+    gap = (hi_y - lo_y + 2 * pad) / max(9, 2.8 * len(L) + 1)
+    pos, last = {}, None
+    for p in sorted(L):
+        y = p if last is None or p - last >= gap * 2.6 else last + gap * 2.6
+        pos[p], last = y, y
+    shift = max(0, last - (hi_y + pad - gap)) if last is not None else 0
+    for p, e in L.items():
+        up = p > px
+        col = UP if up else DN
+        ax.hlines(p, a, a + fut, color=col, lw=1.2)
+        ax.text(a + fut, p, f'{p:,.2f} ', color=col, fontsize=8.5, ha='right', va='bottom')
+        y = pos[p] - shift
+        side.plot([0, 0.03], [p, y], color=col, lw=0.8, clip_on=False)
+        name = ('New high' if up else 'New low') if e['name'].startswith('past the impulse') else e['name']
+        lines = [f'{name}   {abs(p - px):.0f} pts {"above" if up else "below"}']
+        rows = sorted(e['rows'], key=lambda r: r['end'])[:6]
+        cells = [f'{r["p"] * 100:.0f}% {r["win"]}' for r in rows]
+        lines += ['   '.join(cells[k:k + 3]) for k in range(0, len(cells), 3)]
+        lines[-1] += f'   (n {rows[-1]["n"]})'
+        last = rows[-1]
+        if last['t'] is not None:
+            lines.append(f'when it hit: median {last["t"]:.0f} min after now (~{last["at"]})')
+        if e['dep']:
+            win, md, q1, q3 = e['dep']
+            lines.append(f'then, {win}: ran {md:.0f} pts further (middle half {q1:.0f}-{q3:.0f})')
+        side.text(0.05, y, lines[0], color=col, fontsize=10, fontweight='bold', va='bottom')
+        side.text(0.05, y, '\n'.join(lines[1:]), color=FG, fontsize=8.8, va='top', linespacing=1.35)
+    fig.text(0.04, 0.955, title.strip('"'), color='#ffffff', fontsize=13, fontweight='bold')
+    n = answer_rung(rungs)['n']
+    fig.text(0.04, 0.925, f'NQ {clock(a)} CT  ·  price {px:,.2f}  ·  {n} matched past days (2024-26)  ·  '
+             'descriptive odds, not a signal', color=MUTED, fontsize=9.5)
+    if not L:
+        side.text(0.05, px, 'No price levels in this answer to mark.', color=MUTED, fontsize=10)
+    fig.savefig(path, dpi=110, facecolor=BG)
 
 
 # ---------------------------------------------------------------- TradingView drawing (never saved to the layout)
@@ -1521,6 +1658,16 @@ def serve(port=PORT):
             elif u.path == '/latest':
                 body = open(LATEST + '.txt', encoding='utf-8').read() if os.path.exists(LATEST + '.txt') else \
                     'No live read yet (the watcher reads the chart each minute, 6 PM-4 PM CT).'
+            elif u.path in ('/latest.png', '/answer.png'):
+                f = LATEST + '.png' if u.path == '/latest.png' else ANSWER_PNG
+                b = open(f, 'rb').read() if os.path.exists(f) else b''
+                self.send_response(200 if b else 404)
+                self.send_header('Content-Type', 'image/png')
+                self.send_header('Cache-Control', 'no-store')
+                self.send_header('Content-Length', str(len(b)))
+                self.end_headers()
+                self.wfile.write(b)
+                return
             elif u.path == '/':
                 body = PAGE
             else:
@@ -1542,17 +1689,18 @@ PAGE = """<!doctype html><meta charset=utf-8><meta name=viewport content="width=
 <style>body{font:15px system-ui;margin:0 auto;max-width:980px;padding:16px;background:#111;color:#ddd}
 input{width:100%;box-sizing:border-box;font:16px system-ui;padding:10px;background:#1c1c1c;color:#fff;border:1px solid #444}
 pre{white-space:pre-wrap;background:#1a1a1a;padding:12px;border:1px solid #333;font:13px Consolas,monospace}
-h2{font-size:15px;color:#aaa;margin:20px 0 6px}small{color:#888}</style>
+h2{font-size:15px;color:#aaa;margin:20px 0 6px}small{color:#888}img{width:100%;display:block;margin:8px 0}</style>
 <h1>CSO Live</h1><small>Descriptive odds from 2024-26 NQ days like today's. Not an edge, not advice.</small>
 <h2>Ask (plain English, e.g. "odds of new london low")</h2>
-<form id=f><input id=q autofocus placeholder="type a question, press Enter"></form><pre id=a>-</pre>
-<h2>Live read <small id=t></small></h2><pre id=l>loading...</pre>
+<form id=f><input id=q autofocus placeholder="type a question, press Enter"></form><img id=ai hidden><pre id=a>-</pre>
+<h2>Live read <small id=t></small></h2><img id=li hidden onload="this.hidden=false"><pre id=l>loading...</pre>
 <script>
 const g=u=>fetch(u).then(r=>r.text());
-async function live(){l.textContent=await g('/latest');t.textContent='updated '+new Date().toLocaleTimeString()}
+async function live(){l.textContent=await g('/latest');li.src='/latest.png?'+Date.now();t.textContent='updated '+new Date().toLocaleTimeString()}
 live();setInterval(live,30000);
-f.onsubmit=async e=>{e.preventDefault();if(!q.value.trim())return;a.textContent='working... (a new question takes ~10 s)';
-a.textContent=await g('/run?argv='+encodeURIComponent(JSON.stringify(['--q',q.value,'--fast'])))}
+f.onsubmit=async e=>{e.preventDefault();if(!q.value.trim())return;a.textContent='working... (a new question takes ~10 s)';ai.hidden=true;
+a.textContent=await g('/run?argv='+encodeURIComponent(JSON.stringify(['--q',q.value,'--fast'])));
+if(a.textContent.includes('Chart: ')){ai.src='/answer.png?'+Date.now();ai.hidden=false}}
 </script>"""
 
 
