@@ -27,7 +27,9 @@ the % for each outcome, how far it went (in today's prices), and how soon.
      - `odds of new london low`
      - `odds of new high by 10 am`
      - `retrace to .618 or new low first`
-   - Every answer comes with a **chart**: today's bars, a line at each level the odds were measured for, and next to it the % for each time window, the median time it hit, and how far price ran past it on the days it did. Only measured numbers are shown, no predicted paths.
+   - Each answer fills the page: the chart on the left; on the right, one card per level with the % as the headline,
+     when it usually happens, the 80% range, the other time windows, how far price ran after, and how many past days it rests on.
+   - The **chart** itself shows: today's bars, a line at each level the odds were measured for, and next to it the % for each time window, the median time it hit, and how far price ran past it on the days it did. Only measured numbers are shown, no predicted paths.
    - **Live read** refreshes every 30 seconds. It updates from 6 PM to 4 PM CT, with the 4–6 PM break skipped.
 
 Times are Central (CT), whatever time zone your PC is set to.

@@ -1293,9 +1293,60 @@ def now(at=None, q_text=None, draw_it=False, fast=False, out=None):
             png = LATEST + '.png' if out is not None else ANSWER_PNG
             chart(st, lv, m, *first, png)
             print(f'Chart: {png}')
+            view = view_data(st, lv, m, src, *first)
+            json.dump(view, open(png[:-4] + '_view.json', 'w', encoding='utf-8'), default=_js)
         except Exception as e:
             print(f'(chart skipped: {type(e).__name__}: {e})')
     return st
+
+
+def plain(lab):
+    """an outcome label in words: 'hit london_lo by 3:59 AM' -> 'Reach London low by 3:59 AM'"""
+    m = re.match(r'hit (\S+) (.+)', lab)
+    if m:
+        return f'Reach {level_name(m.group(1))} {m.group(2)}'
+    m = re.match(r'retrace (\S+) of \S+ (.+)', lab)
+    if m:
+        return f'Pull back to the {m.group(1)} {m.group(2)}'
+    m = re.match(r'race: (.+) first', lab)
+    if m:
+        w = m.group(1).split()
+        return ('Same bar / neither first' if w[0] in ('same', 'neither') else
+                f'{w[-1]} retrace first' if w[0] == 'retrace' else f'{level_name(w[-1])} first')
+    return lab[0].upper() + lab[1:]
+
+
+def view_data(st, lv, m, src, q, rungs, title):
+    """everything the page shows for one answer, as plain data: state, the sample, each level's odds by window, other rows"""
+    import contextlib, io
+    a = m - 1
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        print_state(st)
+    _, today, _ = today_ctx(lv, *parse(q), st.get('over') if ' as I' in q else None, a)
+    L = chart_rows(rungs, today, a)
+    px = float(st['px'])
+    levels = []
+    for p, e in sorted(L.items(), key=lambda x: -x[0]):
+        up = p > px
+        name = ('New high' if up else 'New low') if e['name'].startswith('past the impulse') else e['name']
+        rows = sorted(e['rows'], key=lambda r: r['end'])
+        levels.append(dict(name=name, price=p, dist=p - px, rows=rows,
+                           dep=dict(zip(('win', 'med', 'q1', 'q3', 'n'), e['dep'])) if e['dep'] else None))
+    ans = answer_rung(rungs)
+    other = []
+    for s in summarize(ans['df']):
+        tp = (today or {}).get(s['out'], '')
+        if not s['n'] or (tp and 'already past' not in tp and re.match(r'(hit|retrace|race: (?!same))', s['out'])):
+            continue
+        other.append(dict(label=plain(s['out']), p=s['k'] / s['n'], ci=[float(c) for c in s['ci']], n=s['n'],
+                          t=float(s['mins'].median()) if len(s['mins']) else None,
+                          dep=[float(s['dep'].median()), float(s['dep'].quantile(.25)), float(s['dep'].quantile(.75))] if len(s['dep']) >= 5 else None,
+                          past='already past' in tp))
+    return dict(title=title.strip('"'), q=q, src=src, at=clock(a), px=px, sess=st['sess'], news=st.get('news'),
+                state=[x for x in buf.getvalue().splitlines() if x.strip()],
+                sample=dict(label=ans['label'], n=ans['n'], ladder=[dict(label=r['label'], n=r['n']) for r in rungs]),
+                levels=levels, other=other, swept=st['swept'], imp=st.get('imp') and {k: st['imp'][k] for k in ('dir', 'size', 'basev', 'topv', 'r_now')})
 
 
 # ---------------------------------------------------------------- the chart picture: today's bars + every level the answer measured
@@ -1340,7 +1391,8 @@ def chart_rows(rungs, today, a):
         t = float(s['mins'].median()) if len(s['mins']) else None
         w = re.match(r'within (\d+)', win)
         end = a + int(w.group(1)) if w else tmin(win[3:]) if win.startswith('by ') else 9999
-        e['rows'].append(dict(win=win, end=end, p=s['k'] / s['n'], n=s['n'], t=t, at=clock(a + t) if t is not None else None))
+        e['rows'].append(dict(win=win, end=end, p=s['k'] / s['n'], n=s['n'], t=t, at=clock(a + t) if t is not None else None,
+                              ci=[float(c) for c in s['ci']]))
         if len(s['dep']) >= 5 and (e['dep'] is None or win == 'within 60 min'):  # 'how far past' over the next hour when we have it
             e['dep'] = (win, s['dep'].median(), s['dep'].quantile(.25), s['dep'].quantile(.75), len(s['dep']))
     return L
@@ -1644,6 +1696,7 @@ def serve(port=PORT):
 
         def do_GET(self):
             u = urllib.parse.urlparse(self.path)
+            kind = 'text/plain'
             if u.path == '/ping':
                 body = 'ok'
             elif u.path == '/run':
@@ -1668,13 +1721,29 @@ def serve(port=PORT):
                 self.end_headers()
                 self.wfile.write(b)
                 return
+            elif u.path == '/ask':  # the page's question: the text answer + the structured view written beside answer.png
+                q = urllib.parse.parse_qs(u.query).get('q', [''])[0]
+                vf, t0 = ANSWER_PNG[:-4] + '_view.json', time.time()
+                with lock:
+                    txt = capture(lambda: dispatch(['--q', q, '--fast']))
+                view = json.load(open(vf, encoding='utf-8')) if os.path.exists(vf) and os.path.getmtime(vf) >= t0 else None
+                body, kind = json.dumps(dict(text=txt, view=view), default=_js), 'application/json'
+            elif u.path == '/view/latest':
+                vf = LATEST + '_view.json'
+                ok = os.path.exists(vf)
+                body = json.dumps(dict(view=json.load(open(vf, encoding='utf-8')) if ok else None,
+                                       text=open(LATEST + '.txt', encoding='utf-8').read() if os.path.exists(LATEST + '.txt') else '',
+                                       age=int(time.time() - os.path.getmtime(vf)) if ok else None), default=_js)
+                kind = 'application/json'
             elif u.path == '/':
-                body = PAGE
+                body = open(os.path.join(HERE, 'live_page.html'), encoding='utf-8').read()
+                kind = 'text/html'
             else:
-                body = 'GET / | /latest | /ping | /run?argv=[...]'
+                body = 'GET / | /ask?q= | /view/latest | /latest | /ping | /run?argv=[...]'
             b = body.encode('utf-8')
             self.send_response(200)
-            self.send_header('Content-Type', ('text/html' if u.path == '/' else 'text/plain') + '; charset=utf-8')
+            self.send_header('Content-Type', kind + '; charset=utf-8')
+            self.send_header('Cache-Control', 'no-store')
             self.send_header('Content-Length', str(len(b)))
             self.end_headers()
             self.wfile.write(b)
@@ -1682,26 +1751,6 @@ def serve(port=PORT):
     threading.Thread(target=watch, daemon=True).start()
     print(f'CSO watcher on http://127.0.0.1:{port}  (live read every minute -> {LATEST}.txt / .json)')
     ThreadingHTTPServer(('127.0.0.1', port), H).serve_forever()
-
-
-PAGE = """<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
-<title>CSO Live</title>
-<style>body{font:15px system-ui;margin:0 auto;max-width:980px;padding:16px;background:#111;color:#ddd}
-input{width:100%;box-sizing:border-box;font:16px system-ui;padding:10px;background:#1c1c1c;color:#fff;border:1px solid #444}
-pre{white-space:pre-wrap;background:#1a1a1a;padding:12px;border:1px solid #333;font:13px Consolas,monospace}
-h2{font-size:15px;color:#aaa;margin:20px 0 6px}small{color:#888}img{width:100%;display:block;margin:8px 0}</style>
-<h1>CSO Live</h1><small>Descriptive odds from 2024-26 NQ days like today's. Not an edge, not advice.</small>
-<h2>Ask (plain English, e.g. "odds of new london low")</h2>
-<form id=f><input id=q autofocus placeholder="type a question, press Enter"></form><img id=ai hidden><pre id=a>-</pre>
-<h2>Live read <small id=t></small></h2><img id=li hidden onload="this.hidden=false"><pre id=l>loading...</pre>
-<script>
-const g=u=>fetch(u).then(r=>r.text());
-async function live(){l.textContent=await g('/latest');li.src='/latest.png?'+Date.now();t.textContent='updated '+new Date().toLocaleTimeString()}
-live();setInterval(live,30000);
-f.onsubmit=async e=>{e.preventDefault();if(!q.value.trim())return;a.textContent='working... (a new question takes ~10 s)';ai.hidden=true;
-a.textContent=await g('/run?argv='+encodeURIComponent(JSON.stringify(['--q',q.value,'--fast'])));
-if(a.textContent.includes('Chart: ')){ai.src='/answer.png?'+Date.now();ai.hidden=false}}
-</script>"""
 
 
 def via_server(argv):

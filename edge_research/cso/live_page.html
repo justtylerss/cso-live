@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CSO Live</title>
+<style>
+:root{--bg:#0f1012;--panel:#17181b;--panel2:#1d1f23;--line:#2a2d33;--fg:#d1d4dc;--muted:#8a8f98;--dim:#5d626b;
+--up:#089981;--dn:#f23645;--blue:#2962ff;--gold:#f0b232;--white:#fff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:18px;padding:10px 20px;background:#0b0c0e;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.brand{font-weight:800;font-size:18px;color:var(--white);letter-spacing:.3px}.brand span{color:var(--gold)}
+.px{font:700 22px/1 ui-monospace,Consolas,monospace;color:var(--white)}
+.badge{padding:3px 9px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);font-size:12px;color:var(--fg)}
+.badge.news{background:#3a2a07;border-color:#6b4d0c;color:var(--gold);font-weight:600}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--dim);display:inline-block;margin-right:6px}.dot.on{background:var(--up);box-shadow:0 0 8px var(--up)}
+.grow{flex:1}.sm{font-size:12px;color:var(--muted)}
+main{max-width:1500px;margin:0 auto;padding:18px 20px 40px}
+.ask{display:flex;gap:10px}
+.ask input{flex:1;font:16px system-ui;padding:14px 16px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--white);outline:none}
+.ask input:focus{border-color:var(--blue)}
+.ask button{padding:0 22px;border-radius:10px;border:0;background:var(--blue);color:#fff;font-weight:700;font-size:15px;cursor:pointer}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 16px}
+.chip{padding:6px 12px;border-radius:999px;background:var(--panel);border:1px solid var(--line);color:var(--fg);cursor:pointer;font-size:13px}
+.chip:hover{border-color:var(--blue);color:var(--white)}
+.tabs{display:flex;gap:4px;margin-bottom:12px}
+.tab{padding:8px 16px;border-radius:8px 8px 0 0;cursor:pointer;color:var(--muted);font-weight:600;border-bottom:2px solid transparent}
+.tab.on{color:var(--white);border-bottom-color:var(--gold)}
+.grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(340px,1fr);gap:18px;align-items:start}
+@media(max-width:1050px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+.qtitle{font-size:20px;font-weight:800;color:var(--white);margin:0 0 4px}
+.chart img{width:100%;display:block;border-radius:8px;background:#181818}
+.side{display:flex;flex-direction:column;gap:12px}
+.lvl{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--muted);border-radius:12px;padding:14px 16px}
+.lvl.up{border-left-color:var(--up)}.lvl.dn{border-left-color:var(--dn)}
+.lvl .top{display:flex;align-items:baseline;gap:14px}
+.big{font:800 46px/1 ui-monospace,Consolas,monospace;letter-spacing:-1px}
+.up .big{color:var(--up)}.dn .big{color:var(--dn)}
+.what{font-weight:700;color:var(--white);font-size:15px}
+.where{font:13px ui-monospace,Consolas,monospace;color:var(--muted)}
+.when{margin-top:8px;font-size:15px;color:var(--white)}.when b{color:var(--gold)}
+.bar{position:relative;height:8px;background:#26292f;border-radius:4px;margin:10px 0 4px}
+.bar i{position:absolute;top:0;bottom:0;border-radius:4px;opacity:.45}.bar b{position:absolute;top:-3px;width:3px;height:14px;border-radius:2px}
+.up .bar i,.up .bar b{background:var(--up)}.dn .bar i,.dn .bar b{background:var(--dn)}
+.wins{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.win{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:4px 9px;font-size:12px;color:var(--muted)}
+.win b{color:var(--white);font-size:14px;margin-right:4px}
+.after{margin-top:10px;font-size:13px;color:var(--fg)}
+.warn{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:6px;background:#3a2a07;color:var(--gold);font-size:11px;font-weight:700}
+.row{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}.row .p{font:700 15px ui-monospace,Consolas,monospace;color:var(--white);min-width:52px;text-align:right}
+h3{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}
+.ladder{display:flex;flex-wrap:wrap;gap:6px}.ladder span{padding:3px 8px;border-radius:6px;background:var(--panel2);font-size:12px}
+.ladder span.on{background:#13284d;color:#fff;border:1px solid var(--blue)}
+.state div{padding:3px 0;font-size:13px}
+details summary{cursor:pointer;color:var(--muted);margin:14px 0 8px}
+pre{white-space:pre;overflow:auto;background:#0b0c0e;border:1px solid var(--line);border-radius:8px;padding:12px;font:12px Consolas,monospace;color:var(--fg);max-height:520px}
+.hist{display:flex;flex-direction:column;gap:6px}.hist a{color:var(--fg);cursor:pointer;text-decoration:none;font-size:13px}.hist a:hover{color:var(--white)}
+.loading{display:none;align-items:center;gap:10px;color:var(--muted);margin:6px 0 12px}.loading.on{display:flex}
+.spin{width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--gold);border-radius:50%;animation:s 0.8s linear infinite}@keyframes s{to{transform:rotate(360deg)}}
+.empty{color:var(--muted);padding:30px;text-align:center}
+footer{max-width:1500px;margin:0 auto;padding:0 20px 30px;color:var(--dim);font-size:12px}
+
+body{background:radial-gradient(1200px 500px at 15% -10%,#14213d55,transparent 60%),radial-gradient(900px 500px at 100% 0%,#3a2a0733,transparent 60%),var(--bg);background-attachment:fixed}
+header{background:linear-gradient(90deg,#0b0c0eee,#10131aee);backdrop-filter:blur(8px)}
+header::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;background:linear-gradient(90deg,transparent,var(--gold),var(--blue),transparent);opacity:.7;animation:sweep 6s linear infinite;background-size:200% 100%}
+@keyframes sweep{from{background-position:200% 0}to{background-position:-200% 0}}
+.px{transition:color .4s,text-shadow .4s}.px.flash-up{color:var(--up);text-shadow:0 0 14px var(--up)}.px.flash-dn{color:var(--dn);text-shadow:0 0 14px var(--dn)}
+.dot.on{animation:pulse 2s ease-in-out infinite}@keyframes pulse{50%{box-shadow:0 0 0 6px #08998122}}
+.ask input{transition:border-color .2s,box-shadow .2s}.ask input:focus{box-shadow:0 0 0 4px #2962ff22}
+.ask button{background:linear-gradient(135deg,#2962ff,#7b5cff);box-shadow:0 6px 20px #2962ff44;transition:transform .15s}.ask button:hover{transform:translateY(-1px)}
+.chip{transition:all .15s}.chip:hover{transform:translateY(-1px);box-shadow:0 4px 14px #0006}
+.in{opacity:0;transform:translateY(10px);animation:in .45s cubic-bezier(.2,.8,.2,1) forwards}@keyframes in{to{opacity:1;transform:none}}
+.lvl{transition:transform .15s,box-shadow .15s;position:relative;overflow:hidden}.lvl:hover{transform:translateY(-2px);box-shadow:0 10px 30px #0008}
+.lvl.up{background:linear-gradient(135deg,#08998114,var(--panel) 45%)}.lvl.dn{background:linear-gradient(135deg,#f2364514,var(--panel) 45%)}
+.ring{--p:0;width:96px;height:96px;flex:none;border-radius:50%;display:grid;place-items:center;
+ background:conic-gradient(var(--c) calc(var(--p)*1%),#26292f 0);transition:--p 1s;position:relative}
+.ring::before{content:"";position:absolute;inset:7px;border-radius:50%;background:var(--panel)}
+.ring .big{position:relative;font-size:28px;letter-spacing:-.5px}
+.up .ring{--c:var(--up);box-shadow:0 0 22px #08998133}.dn .ring{--c:var(--dn);box-shadow:0 0 22px #f2364533}
+.bar i{width:0;transition:width .9s cubic-bezier(.2,.8,.2,1),left .9s}
+.chart img{transition:opacity .4s}.chart img.fade{opacity:.25}
+</style></head>
+<body>
+<header>
+  <div class="brand">CSO <span>Live</span></div>
+  <div class="px" id="px">-</div>
+  <span class="badge" id="sess">-</span>
+  <span class="badge news" id="news" hidden></span>
+  <div class="grow"></div>
+  <span class="sm"><span class="dot" id="dot"></span><span id="upd">connecting...</span></span>
+</header>
+<main>
+  <form class="ask" id="f"><input id="q" autocomplete="off" placeholder='Ask in plain English, e.g. "odds of new london low" or "which first .618 or new low"'><button>Ask</button></form>
+  <div class="chips" id="chips"></div>
+  <div class="loading" id="load"><div class="spin"></div><span>Matching past days... a new question takes about 10 seconds</span></div>
+  <div class="tabs"><div class="tab on" data-v="answer" id="t-answer">Your question</div><div class="tab" data-v="live" id="t-live">Live read (auto)</div></div>
+  <div id="view"><div class="card empty">Ask a question above, or open the live read.</div></div>
+</main>
+<footer>Descriptive odds: how often past NQ days in the same situation (2024-26) did each thing. Not a signal, not advice. Times are Central (CT).</footer>
+<script>
+const $=s=>document.querySelector(s), esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pct=p=>p==null?'-':Math.round(p*100)+'%', pts=x=>(x>0?'+':'')+Math.round(x), fmt=x=>Number(x).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const CHIPS=['odds of new london low','odds of new london high','odds of hitting .618','which first .618 or new low','odds of asia high','odds of asia low','odds of prior day high','odds of prior day low'];
+$('#chips').innerHTML=CHIPS.map(c=>`<span class="chip">${c}</span>`).join('');
+document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{$('#q').value=c.textContent;ask()});
+let mode='answer', answer=null, live=null, hist=[];
+try{hist=JSON.parse(localStorage.getItem('cso_hist')||'[]')}catch(e){}
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{mode=t.dataset.v;tabs();render()});
+function tabs(){document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.v==mode))}
+
+function headline(rows){ // the one window to lead with: the race result, else this session (the first 'by' window), else the longest
+  return rows.find(r=>r.win=='reached first')||rows.find(r=>r.win.startsWith('by '))||rows[rows.length-1]}
+function levelCard(l){
+  const side=l.dist>0?'up':'dn', h=headline(l.rows), thin=h.n<15?'<span class="warn">thin: under 15 days</span>':h.n<30?'<span class="warn">under 30 days</span>':'';
+  const lo=h.ci?h.ci[0]*100:0, hi=h.ci?h.ci[1]*100:0;
+  const what=h.win=='reached first'?`${esc(l.name)} reached first`:`Reach ${esc(l.name)} ${esc(h.win)}`;
+  const when=h.t!=null?`<div class="when">Usually <b>~${esc(h.at)}</b> <span class="sm">(median ${Math.round(h.t)} min from now, on days it happened)</span></div>`:'';
+  const wins=l.rows.filter(r=>r!==h).map(r=>`<span class="win"><b>${pct(r.p)}</b>${esc(r.win)}</span>`).join('');
+  const dep=l.dep?`<div class="after">After reaching it: ran <b>${Math.round(l.dep.med)} pts</b> further ${esc(l.dep.win)} <span class="sm">(middle half ${Math.round(l.dep.q1)}-${Math.round(l.dep.q3)}, ${l.dep.n} days)</span></div>`:'';
+  return `<div class="lvl ${side}"><div class="top"><div class="ring" data-p="${Math.round(h.p*100)}"><div class="big" data-v="${Math.round(h.p*100)}">0%</div></div><div><div class="what">${what}${thin}</div>
+  <div class="where">${fmt(l.price)} &nbsp;·&nbsp; ${pts(l.dist)} pts ${l.dist>0?'above':'below'}</div></div></div>${when}
+  <div class="bar" title="80% range"><i data-w="${Math.max(1,hi-lo)}" style="left:${lo}%"></i><b style="left:calc(${h.p*100}% - 1px)"></b></div>
+  <div class="sm">80% range ${Math.round(lo)}-${Math.round(hi)}% &nbsp;·&nbsp; ${h.n} days</div>${wins?`<div class="wins">${wins}</div>`:''}${dep}</div>`}
+function otherCard(o){ if(!o.length) return '';
+  return `<div class="card"><h3>Other outcomes</h3>${o.map(r=>`<div class="row"><span>${esc(r.label)}${r.past?' <span class="sm">(already past)</span>':''}${r.dep?` <span class="sm">· ${Math.round(r.dep[0])} pts (${Math.round(r.dep[1])}-${Math.round(r.dep[2])})</span>`:''}${r.t!=null?` <span class="sm">· ~${Math.round(r.t)} min</span>`:''}</span><span class="p">${r.label.startsWith('Max ')?'':pct(r.p)}</span></div>`).join('')}</div>`}
+function block(v, img, text){
+  if(!v) return `<div class="card empty">${text?`<pre>${esc(text)}</pre>`:'No answer yet.'}</div>`;
+  const s=v.sample, ans=s.ladder.findIndex(r=>r.label==s.label);
+  const lad=s.ladder.map((r,i)=>`<span class="${i==ans?'on':''}">${esc(r.label)} · ${r.n}</span>`).join('');
+  return `<div class="grid"><div>
+    <div class="card chart"><div class="qtitle">${esc(v.title)}</div><div class="sm" style="margin-bottom:10px">NQ ${fmt(v.px)} at ${esc(v.at)} CT · ${esc(v.src)}</div><img src="${img}?${Date.now()}" alt="chart"></div>
+    <div class="card" style="margin-top:14px"><h3>Market right now</h3><div class="state">${v.state.map(x=>`<div>${esc(x)}</div>`).join('')}</div>
+    <details><summary>Full table and the question as CSO reads it</summary><pre>${esc(v.q)}\n\n${esc(text||'')}</pre></details></div>
+  </div><div class="side">
+    ${v.levels.length?v.levels.map(levelCard).join(''):'<div class="card empty">No price levels in this answer.</div>'}
+    ${otherCard(v.other)}
+    <div class="card"><h3>What the odds are based on</h3><div style="margin-bottom:8px"><b style="color:#fff;font-size:18px">${s.n}</b> matched past days (2024-26)</div>
+      <div class="ladder">${lad}</div><div class="sm" style="margin-top:8px">Left to right: conditions loosened one at a time until 30+ days matched. Highlighted = the rung the answer uses.</div></div>
+    ${mode=='answer'&&hist.length?`<div class="card"><h3>Recent questions</h3><div class="hist">${hist.map(h=>`<a>${esc(h)}</a>`).join('')}</div></div>`:''}
+  </div></div>`}
+function render(){
+  const v=mode=='live'?live:answer;
+  $('#view').innerHTML=mode=='live'?block(live&&live.view,'/latest.png',live&&live.text):
+    (answer?block(answer.view,'/answer.png',answer.text):'<div class="card empty">Ask a question above, or open the live read.</div>');
+  document.querySelectorAll('.hist a').forEach(a=>a.onclick=()=>{$('#q').value=a.textContent;ask()});
+  animate();
+}
+function animate(){ // cards slide in one after another, rings fill, numbers count up, ranges grow
+  document.querySelectorAll('.side>*,.grid>div>.card').forEach((el,i)=>{el.classList.add('in');el.style.animationDelay=(i*70)+'ms'});
+  document.querySelectorAll('.ring').forEach(r=>{const to=+r.dataset.p,b=r.querySelector('.big'),t0=performance.now();
+    (function f(t){const k=Math.min(1,(t-t0)/900),e=1-Math.pow(1-k,3),v=Math.round(to*e);r.style.setProperty('--p',v);b.textContent=v+'%';if(k<1)requestAnimationFrame(f)})(t0)});
+  requestAnimationFrame(()=>document.querySelectorAll('.bar i[data-w]').forEach(i=>i.style.width=i.dataset.w+'%'));
+}
+async function ask(){
+  const q=$('#q').value.trim(); if(!q) return;
+  mode='answer'; tabs(); $('#load').classList.add('on');
+  try{answer=await (await fetch('/ask?q='+encodeURIComponent(q))).json()}catch(e){answer={text:'Could not reach the watcher: '+e}}
+  $('#load').classList.remove('on');
+  hist=[q,...hist.filter(h=>h!=q)].slice(0,8); try{localStorage.setItem('cso_hist',JSON.stringify(hist))}catch(e){}
+  if(answer.view) head(answer.view); render();
+}
+$('#f').onsubmit=e=>{e.preventDefault();ask()};
+let lastPx=null;
+function head(v){const el=$('#px'); if(lastPx!=null&&v.px!=lastPx){el.classList.remove('flash-up','flash-dn');void el.offsetWidth;
+  el.classList.add(v.px>lastPx?'flash-up':'flash-dn');setTimeout(()=>el.classList.remove('flash-up','flash-dn'),1500)} lastPx=v.px; el.textContent=fmt(v.px);$('#sess').textContent={asia:'Asia',london:'London',on:'Pre-NY',rth:'NY session'}[v.sess]||v.sess;
+  const n=$('#news'); n.hidden=!v.news; n.textContent=v.news?('News day: '+v.news.toUpperCase()):'';}
+async function poll(){
+  try{live=await (await fetch('/view/latest')).json(); $('#dot').classList.add('on');
+    $('#upd').textContent='live read '+(live.age!=null?live.age+' s old':'waiting');
+    if(live.view && (!answer||mode=='live')) head(live.view); if(mode=='live') render();}
+  catch(e){$('#dot').classList.remove('on');$('#upd').textContent='watcher offline: run start.bat'}
+}
+poll(); setInterval(poll,30000); render();
+</script>
+</body></html>
