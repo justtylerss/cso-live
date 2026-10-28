@@ -1342,7 +1342,7 @@ def chart_rows(rungs, today, a):
         end = a + int(w.group(1)) if w else tmin(win[3:]) if win.startswith('by ') else 9999
         e['rows'].append(dict(win=win, end=end, p=s['k'] / s['n'], n=s['n'], t=t, at=clock(a + t) if t is not None else None))
         if len(s['dep']) >= 5 and (e['dep'] is None or win == 'within 60 min'):  # 'how far past' over the next hour when we have it
-            e['dep'] = (win, s['dep'].median(), s['dep'].quantile(.25), s['dep'].quantile(.75))
+            e['dep'] = (win, s['dep'].median(), s['dep'].quantile(.25), s['dep'].quantile(.75), len(s['dep']))
     return L
 
 
@@ -1415,8 +1415,8 @@ def chart(st, lv, m, q, rungs, title, path, W=150):
         if last['t'] is not None:
             lines.append(f'when it hit: median {last["t"]:.0f} min after now (~{last["at"]})')
         if e['dep']:
-            win, md, q1, q3 = e['dep']
-            lines.append(f'then, {win}: ran {md:.0f} pts further (middle half {q1:.0f}-{q3:.0f})')
+            win, md, q1, q3, nd = e['dep']
+            lines.append(f'then, {win}: ran {md:.0f} pts further (middle half {q1:.0f}-{q3:.0f}, {nd} days)')
         side.text(0.05, y, lines[0], color=col, fontsize=10, fontweight='bold', va='bottom')
         side.text(0.05, y, '\n'.join(lines[1:]), color=FG, fontsize=8.8, va='top', linespacing=1.35)
     fig.text(0.04, 0.955, title.strip('"'), color='#ffffff', fontsize=13, fontweight='bold')
