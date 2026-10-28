@@ -381,6 +381,7 @@ def tick(at=None, png=True):
         live_day = (lv.H[i], lv.L[i], lv.C[i])
         _COND.update(k=ck, rows=conditionals(F, [p for p in pois if not p['touched']], px, atr_now, live_day))
     snap = dict(at=C.clock(a), src=src, px=px, session=SESSION(a), atr=atr_now, n_days=len(F.days), windows=[w for _, w in F.ends],
+                bars=C.bars_out(lv, a), now_t=C.bar_time(lv, i, a), ends_t=[C.bar_time(lv, i, e) for e, _ in F.ends],
                 ends=[e for e, _ in F.ends],
                 pois=pois, cond=_COND['rows'], health=dict(health, read=C.clock(a), secs=round(time.time() - t0, 1)))
     json.dump(snap, open(OUT + '.json.tmp', 'w', encoding='utf-8'), default=C._js)

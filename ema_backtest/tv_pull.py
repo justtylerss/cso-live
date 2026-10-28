@@ -16,10 +16,11 @@ MORE = f"(() => {{ {API}._chartWidget.model().mainSeries().requestMoreData(5000)
 
 async def evaluate(ws, expr, n=[0]):
     n[0] += 1
-    await ws.send_json({'id': n[0], 'method': 'Runtime.evaluate', 'params': {'expression': expr, 'returnByValue': True}})
+    i = n[0]  # this call's own id: the counter is shared, and two threads pulling at once must not wait on each other's id
+    await ws.send_json({'id': i, 'method': 'Runtime.evaluate', 'params': {'expression': expr, 'returnByValue': True}})
     while True:
         msg = await ws.receive_json()
-        if msg.get('id') == n[0]:
+        if msg.get('id') == i:
             r = msg['result']
             if 'exceptionDetails' in r:
                 raise RuntimeError(r['exceptionDetails'].get('text'))

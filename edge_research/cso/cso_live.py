@@ -952,7 +952,7 @@ def live_grid(bars=6000, max_age=15):
 def _live_grid(bars=6000):
     sys.path.insert(0, os.path.join(cso.ROOT, 'ema_backtest'))
     import tv_pull
-    d = asyncio.run(tv_pull.pull(bars))
+    d = asyncio.run(asyncio.wait_for(tv_pull.pull(bars), 30))  # never hang the watcher on a stuck chart read
     if d['res'] != '1':
         sys.exit(f'chart is on {d["res"]}: switch it to 1 minute')
     tv = pd.DataFrame(d['bars'], columns=['t', 'open', 'high', 'low', 'close', 'volume'])
@@ -1316,6 +1316,25 @@ def plain(lab):
     return lab[0].upper() + lab[1:]
 
 
+def bar_time(lv, i, m):
+    """minute m of grid day i -> epoch seconds of that CT wall-clock time (so the page's chart axis reads CT)"""
+    return int((lv.days[i] - pd.Timedelta(hours=7) + pd.Timedelta(minutes=int(m))).value // 10**9)
+
+
+def bars_out(lv, a, W=240):
+    """the last W one-minute bars up to minute a (yesterday's tail too), as [t, o, h, l, c] for the page's live chart"""
+    i = len(lv.days) - 1
+    out = []
+    if a < W and i > 0:
+        for m in range(1380 - (W - a), 1380):
+            if not np.isnan(lv.C[i - 1][m]):
+                out.append([bar_time(lv, i - 1, m), *(round(float(x[i - 1][m]), 2) for x in (lv.O, lv.H, lv.L, lv.C))])
+    for m in range(max(0, a - W), a + 1):
+        if not np.isnan(lv.C[i][m]):
+            out.append([bar_time(lv, i, m), *(round(float(x[i][m]), 2) for x in (lv.O, lv.H, lv.L, lv.C))])
+    return out
+
+
 def view_data(st, lv, m, src, q, rungs, title):
     """everything the page shows for one answer, as plain data: state, the sample, each level's odds by window, other rows"""
     import contextlib, io
@@ -1344,6 +1363,7 @@ def view_data(st, lv, m, src, q, rungs, title):
                           dep=[float(s['dep'].median()), float(s['dep'].quantile(.25)), float(s['dep'].quantile(.75))] if len(s['dep']) >= 5 else None,
                           past='already past' in tp))
     return dict(title=title.strip('"'), q=q, src=src, at=clock(a), px=px, sess=st['sess'], news=st.get('news'),
+                bars=bars_out(lv, a), now_t=bar_time(lv, len(lv.days) - 1, a),
                 state=[x for x in buf.getvalue().splitlines() if x.strip()],
                 sample=dict(label=ans['label'], n=ans['n'], ladder=[dict(label=r['label'], n=r['n']) for r in rungs]),
                 levels=levels, other=other, swept=st['swept'], imp=st.get('imp') and {k: st['imp'][k] for k in ('dir', 'size', 'basev', 'topv', 'r_now')})
@@ -1770,6 +1790,14 @@ def serve(port=PORT):
                                    trace=traceback.format_exc()[-1500:]), open(err, 'w'))
             time.sleep(max(1, 15 - (time.time() - t1)))
 
+    # load matplotlib (and its font cache) and the map engine once, here, before the two threads start drawing:
+    # both doing it at the same time on a fresh start could hang the map thread with no error
+    import matplotlib
+    matplotlib.use('Agg')
+    from matplotlib import font_manager
+    font_manager.findfont('DejaVu Sans')
+    import poi_live
+    poi_live.hist()
     threading.Thread(target=watch, daemon=True).start()
     threading.Thread(target=watch_map, daemon=True).start()
     print(f'CSO watcher on http://127.0.0.1:{port}  (live read every minute -> {LATEST}.txt / .json)')

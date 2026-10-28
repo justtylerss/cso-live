@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CSO Live</title>
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <style>
 :root{--bg:#0f1012;--panel:#17181b;--panel2:#1d1f23;--line:#2a2d33;--fg:#d1d4dc;--muted:#8a8f98;--dim:#5d626b;
 --up:#089981;--dn:#f23645;--blue:#2962ff;--gold:#f0b232;--white:#fff}
@@ -101,6 +102,18 @@ header::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px
 .ci .cp{font:800 28px/1 ui-monospace,Consolas,monospace;color:var(--gold);text-align:right}.ci .cw{font-size:13.5px;color:#fff}.ci .cs{font-size:12px;color:var(--muted);margin-top:3px}
 .ci.live{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold),0 0 22px #f0b23244;animation:glow 1.8s ease-in-out infinite}@keyframes glow{50%{box-shadow:0 0 0 1px var(--gold),0 0 34px #f0b23266}}
 .livebadge{display:inline-block;background:var(--gold);color:#000;font-weight:800;font-size:10.5px;padding:1px 7px;border-radius:5px;margin-right:6px}
+
+.lwc{position:relative;height:clamp(420px,62vh,720px);border-radius:10px;overflow:hidden;
+ background:radial-gradient(900px 300px at 70% 0%,#2962ff10,transparent 70%),linear-gradient(180deg,#121419,#0d0f13)}
+.lwc.sm{height:clamp(380px,52vh,620px)}
+.lgd{position:absolute;z-index:3;top:10px;left:12px;pointer-events:none;display:flex;flex-direction:column;gap:6px}
+.lgd .g{padding:7px 11px;border-radius:10px;background:#0b0d12cc;border:1px solid #ffffff14;backdrop-filter:blur(6px);color:#d1d4dc;font-size:12px}
+.lgd .g b{color:#fff;font:700 15px ui-monospace,Consolas,monospace}.lgd .nx{display:flex;gap:6px;flex-wrap:wrap;max-width:560px}
+.lgd .nx span{padding:4px 9px;border-radius:999px;background:#0b0d12cc;border:1px solid #ffffff14;font-size:12px;color:#d1d4dc}
+.lgd .nx .u{border-color:#26a69a77}.lgd .nx .d{border-color:#ef535077}.lgd .nx i{font-style:normal;font-weight:800}.lgd .nx .u i{color:#26a69a}.lgd .nx .d i{color:#ef5350}
+.lgd .nx em{font-style:normal;color:var(--gold)}
+.map .card.mc{padding:8px}
+[hidden]{display:none!important}
 </style></head>
 <body>
 <header>
@@ -113,7 +126,7 @@ header::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px
 </header>
 <main>
   <div class="sec"><h2>Live map</h2><span class="sm" id="mapsub">every POI on the chart and the odds price reaches it, refreshed every 15 seconds</span><div class="health" id="health"></div></div>
-  <div class="map"><div class="card"><img id="mapimg" alt="live POI map"></div><div class="plist" id="plist"><div class="card empty">Waiting for the first map read...</div></div></div>
+  <div class="map"><div class="card mc"><div class="lwc" id="mapchart"></div><img id="mapimg" alt="live POI map" hidden style="width:100%"></div><div class="plist" id="plist"><div class="card empty">Waiting for the first map read...</div></div></div>
   <div class="two">
     <div class="card how"><h3>How to read this map</h3><dl>
       <dt>Lines</dt><dd>Each line is a POI on your chart. <span style="color:var(--up)">Green</span> = above price, <span style="color:var(--dn)">red</span> = below. Solid = a kind tested on its own history; dashed = untested kind (its odds come from its distance only). Faded = already traded through this session.</dd>
@@ -135,6 +148,56 @@ header::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px
 </main>
 <footer>Live map and answers: 2024-26 1-min NQ history, matched at the same clock time. Descriptive odds: how often past NQ days in the same situation (2024-26) did each thing. Not a signal, not advice. Times are Central (CT).</footer>
 <script>
+// ---- live charts (TradingView Lightweight Charts): candles, every level with its %, and a dot at the expected time
+const LW = window.LightweightCharts, charts = new WeakMap();
+const clockOf = t => { const d = new Date(t * 1000), h = d.getUTCHours(), m = d.getUTCMinutes(); return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}` };
+function liveChart(el, d) {  // d: {bars:[[t,o,h,l,c]], now_t, px, end_t, legend, levels:[{price,name,p,t_min,tested,touched}]}
+  if (!LW || !el || !d || !d.bars || !d.bars.length) return false;
+  let c = charts.get(el);
+  if (!c) {
+    el.innerHTML = '<div class="lgd"></div>';
+    const chart = LW.createChart(el, {
+      autoSize: true,
+      layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#8a8f98', fontFamily: 'system-ui, Segoe UI, sans-serif', fontSize: 11 },
+      grid: { vertLines: { color: '#1b1e25' }, horzLines: { color: '#1b1e25' } },
+      rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.06, bottom: 0.06 } },
+      timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, rightOffset: 3, tickMarkFormatter: t => clockOf(t) },
+      crosshair: { mode: 0, vertLine: { color: '#2962ff66', labelBackgroundColor: '#2962ff' }, horzLine: { color: '#2962ff66', labelBackgroundColor: '#2962ff' } },
+      localization: { timeFormatter: clockOf, priceFormatter: p => p.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) },
+    });
+    const candles = chart.addCandlestickSeries({ upColor: '#26a69a', downColor: '#ef5350', borderVisible: false,
+      wickUpColor: '#26a69aaa', wickDownColor: '#ef5350aa', priceLineColor: '#2962ff', priceLineStyle: 2 });
+    c = { chart, candles, extra: [], lines: [], fitted: false };
+    charts.set(el, c);
+  }
+  c.lines.forEach(l => c.candles.removePriceLine(l)); c.lines = [];
+  c.extra.forEach(s => c.chart.removeSeries(s)); c.extra = [];
+  const lv = d.levels.filter(l => l.p != null);
+  const endT = Math.max(d.end_t || 0, ...lv.map(l => l.t_min != null ? d.now_t + Math.round(l.t_min) * 60 : 0), d.now_t + 1800);
+  const fut = []; for (let t = d.now_t + 60; t <= Math.min(endT + 600, d.now_t + 6 * 3600); t += 60) fut.push({ time: t });
+  c.candles.setData(d.bars.map(b => ({ time: b[0], open: b[1], high: b[2], low: b[3], close: b[4] })).concat(fut));
+  lv.forEach(l => {
+    const up = l.price > d.px, col = up ? '#26a69a' : '#ef5350', pc = Math.round(l.p * 100) + '%';
+    c.lines.push(c.candles.createPriceLine({ price: l.price, color: col + (l.touched ? '55' : 'cc'), lineWidth: l.tested ? 2 : 1,
+      lineStyle: l.tested ? 0 : 2, axisLabelVisible: true, title: `${pc}  ${l.name}` }));
+    // the time expectancy: a bold segment from now to the median time it was reached, a dot there with % and clock time
+    const s = c.chart.addLineSeries({ color: col, lineWidth: 3, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+      autoscaleInfoProvider: () => ({ priceRange: { minValue: l.price, maxValue: l.price } }) });
+    if (l.t_min != null) {
+      const tt = d.now_t + Math.max(1, Math.round(l.t_min)) * 60;
+      s.setData([{ time: d.now_t, value: l.price }, { time: tt, value: l.price }]);
+      s.setMarkers([{ time: tt, position: up ? 'aboveBar' : 'belowBar', shape: 'circle', color: col, text: `${pc} ~${clockOf(tt)}` }]);
+    } else s.setData([{ time: d.now_t, value: l.price }]);   // keeps the level inside the price scale
+    c.extra.push(s);
+  });
+  el.querySelector('.lgd').innerHTML = d.legend || '';
+  if (!c.fitted) {  // the last 2 hours of bars plus the time ahead fill the box; the price scale fits what's visible
+    c.chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, d.bars.length - 120), to: d.bars.length + fut.length });
+    c.fitted = true;
+  }
+  return true;
+}
+
 const $=s=>document.querySelector(s), esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const pct=p=>p==null?'-':Math.round(p*100)+'%', pts=x=>(x>0?'+':'')+Math.round(x), fmt=x=>Number(x).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const CHIPS=['odds of new london low','odds of new london high','odds of hitting .618','which first .618 or new low','odds of asia high','odds of asia low','odds of prior day high','odds of prior day low'];
@@ -165,7 +228,7 @@ function block(v, img, text){
   const s=v.sample, ans=s.ladder.findIndex(r=>r.label==s.label);
   const lad=s.ladder.map((r,i)=>`<span class="${i==ans?'on':''}">${esc(r.label)} · ${r.n}</span>`).join('');
   return `<div class="grid"><div>
-    <div class="card chart"><div class="qtitle">${esc(v.title)}</div><div class="sm" style="margin-bottom:10px">NQ ${fmt(v.px)} at ${esc(v.at)} CT · ${esc(v.src)}</div><img src="${img}?${Date.now()}" alt="chart"></div>
+    <div class="card chart"><div class="qtitle">${esc(v.title)}</div><div class="sm" style="margin-bottom:10px">NQ ${fmt(v.px)} at ${esc(v.at)} CT · ${esc(v.src)}</div><div class="lwc sm" id="achart"></div><img id="aimg" hidden src="${img}?${Date.now()}" alt="chart" style="width:100%"></div>
     <div class="card" style="margin-top:14px"><h3>Market right now</h3><div class="state">${v.state.map(x=>`<div>${esc(x)}</div>`).join('')}</div>
     <details><summary>Full table and the question as CSO reads it</summary><pre>${esc(v.q)}\n\n${esc(text||'')}</pre></details></div>
   </div><div class="side">
@@ -180,6 +243,9 @@ function render(){
   $('#view').innerHTML=mode=='live'?block(live&&live.view,'/latest.png',live&&live.text):
     (answer?block(answer.view,'/answer.png',answer.text):'<div class="card empty">Ask a question above, or open the live read.</div>');
   document.querySelectorAll('.hist a').forEach(a=>a.onclick=()=>{$('#q').value=a.textContent;ask()});
+  if(v&&v.view&&v.view.bars){const w=v.view, lv=w.levels.map(l=>{const h=headline(l.rows);return {price:l.price,name:l.name,p:h.p,t_min:h.t,tested:true,touched:false}});
+    const nx=lv.filter(l=>l.t_min!=null).map(l=>`<span class="${l.price>w.px?'u':'d'}"><i>${pct(l.p)}</i> ${esc(l.name)} ${fmt(l.price)} <em>~${clockOf(w.now_t+Math.round(l.t_min)*60)}</em></span>`).join('');
+    if(!liveChart($('#achart'),{bars:w.bars,now_t:w.now_t,px:w.px,legend:`<div class="g"><b>${fmt(w.px)}</b> &nbsp;${esc(w.at)} CT</div>${nx?`<div class="nx">${nx}</div>`:''}`,levels:lv})){$('#achart').hidden=true;$('#aimg').hidden=false}}
   animate();
 }
 function animate(){ // cards slide in one after another, rings fill, numbers count up, ranges grow
@@ -215,7 +281,10 @@ function mapRender(d){
   const sb=$('#sess'); sb.textContent=m.session; const el=$('#px'); if(lastPx!=null&&m.px!=lastPx){el.classList.remove('flash-up','flash-dn');void el.offsetWidth;
     el.classList.add(m.px>lastPx?'flash-up':'flash-dn');setTimeout(()=>el.classList.remove('flash-up','flash-dn'),1500)} lastPx=m.px; el.textContent=fmt(m.px);
   $('#mapsub').textContent=`${m.session} · NQ ${fmt(m.px)} at ${m.at} CT · ${m.n_days} past days at this clock time · big % = ${m.windows[0]||''}`;
-  $('#mapimg').src='/map.png?'+Date.now();
+  const lv=m.pois.slice(0,10).filter(p=>p.odds.n).map(p=>({price:p.price,name:p.name,p:p.odds.wins[0].p,t_min:p.odds.t,tested:p.tested,touched:p.touched}));
+  const nx=lv.filter(l=>l.t_min!=null).sort((a,b)=>b.p-a.p).slice(0,4).map(l=>`<span class="${l.price>m.px?'u':'d'}"><i>${pct(l.p)}</i> ${esc(l.name)} ${fmt(l.price)} <em>~${clockOf(m.now_t+Math.round(l.t_min)*60)}</em></span>`).join('');
+  const lg=`<div class="g"><b>${fmt(m.px)}</b> &nbsp;${esc(m.session)} · ${esc(m.at)} CT · % = ${esc(m.windows[0]||'')}</div>${nx?`<div class="nx">${nx}</div>`:''}`;
+  if(!liveChart($('#mapchart'),{bars:m.bars,now_t:m.now_t,px:m.px,end_t:(m.ends_t||[])[0],legend:lg,levels:lv})){$('#mapchart').hidden=true;const im=$('#mapimg');im.hidden=false;im.src='/map.png?'+Date.now()}
   $('#plist').innerHTML=m.pois.filter(p=>p.odds.n).map(p=>{
     const w=p.odds.wins, h=w[0], side=p.dist>0?'up':'dn', thin=p.odds.n<15;
     const chg=p.prev!=null?`<span class="tag chg">${Math.round(p.prev*100)}% → ${pct(h.p)}</span>`:'';
