@@ -1,0 +1,119 @@
+CSO LIVE - SETUP AND DAILY USE
+==============================
+
+CSO Live reads your NQ chart in TradingView, finds past NQ days that were in the
+same situation, and shows what happened next on those days: the odds of reaching
+each level, how soon, and how far price went after. It answers in a browser page,
+with a chart for every answer.
+
+These are odds from history, not trade signals or advice.
+
+
+WHAT YOU NEED (install once)
+----------------------------
+1. A Windows PC.
+
+2. Python 3.11 or newer, 64-bit.
+   https://www.python.org/downloads/
+   IMPORTANT: on the first screen of the installer, tick "Add python.exe to PATH".
+
+3. Git.
+   https://git-scm.com/download/win
+   The default options are fine.
+
+4. TradingView Desktop (the app, not the website).
+   https://www.tradingview.com/desktop/
+
+5. A TradingView real-time data subscription for CME futures.
+   In TradingView: Profile > Account and billing > Market data subscriptions > CME.
+   Without it, NQ bars are 10 minutes behind, so the "now" odds will be stale.
+
+6. A GitHub account, with access to this repo. Accept the invite email from GitHub.
+
+
+FIRST-TIME SETUP (about 5 minutes)
+----------------------------------
+1. Open Command Prompt (press Start, type "cmd", press Enter).
+
+2. Go to the folder where you want it (Downloads is fine):
+       cd %USERPROFILE%\Downloads
+
+3. Download the repo:
+       git clone https://github.com/justtylerss/cso-live.git
+   If a window asks you to sign in to GitHub, sign in.
+
+4. Open the new "cso-live" folder in File Explorer and double-click:
+       setup.bat
+   It installs what CSO Live needs and runs a self-check (about a minute).
+   It should end with:  SELF-CHECK PASSED
+   Press any key to close it.
+
+
+EVERY TRADING DAY
+-----------------
+1. Double-click  start.bat  in the cso-live folder. It:
+   - restarts TradingView in "debug mode", which is how CSO Live reads the chart.
+     Your layouts come back as normal.
+   - starts CSO Live in the background
+   - opens the page  http://127.0.0.1:8765  in your browser
+
+2. In TradingView, set the chart to:
+       Symbol:  CME_MINI:NQ1!
+       Time frame:  1 minute
+   Keep that chart active. CSO Live reads whichever chart is open in front.
+
+3. On the CSO Live page:
+   - ASK: type a question and press Enter. Examples:
+         odds of new london low
+         odds of new high
+         odds of hitting .618
+         which first .618 or new low
+         odds of asia high
+         odds of prior day low
+     A new question takes about 10 seconds.
+   - LIVE READ: refreshes on its own every 30 seconds, from 6 PM to 4 PM Central.
+     It pauses during the daily 4-6 PM CT break.
+
+All times are Central (CT), whatever time zone your PC is set to.
+
+
+HOW TO READ AN ANSWER
+---------------------
+Each answer has a chart and a table:
+- Each line on the chart is a price level that was measured (green above price, red below).
+- Next to it:
+    "69% by 3:59 AM"   = on 69% of the matched past days, price reached that level by 3:59 AM.
+    "n 59"             = how many past days it is based on. Under 15 is thin, so treat it lightly.
+    "when it hit: median 13 min after now (~3:22 AM)" = the usual timing on days it did hit.
+    "then: ran 40 pts further (middle half 14-67)"    = how far price went past it after hitting.
+- "reached first" is a race: which of two levels price touched first.
+- In the text table, "80% range" is the uncertainty on each %.
+
+
+UPDATING
+--------
+When there is a new version, double-click  update.bat , then run  start.bat  again.
+
+
+IF SOMETHING GOES WRONG
+-----------------------
+- setup.bat says Python is missing or the wrong kind:
+    Install 64-bit Python 3.11+ from python.org, tick "Add python.exe to PATH",
+    then run setup.bat again.
+
+- start.bat says "TradingView did not open its debug port":
+    Close TradingView completely (also from the system tray, near the clock) and run
+    start.bat again. If it still fails, open Command Prompt and run TradingView yourself:
+        "%LOCALAPPDATA%\Programs\TradingView\TradingView.exe" --remote-debugging-port=9222
+    Then run start.bat. It will skip the TradingView step.
+
+- The page says "No live read yet", or questions give errors about port 9222:
+    TradingView isn't in debug mode. See the item above.
+
+- Prices look wrong, or it says the chart is on another time frame:
+    Switch the active chart to CME_MINI:NQ1! on 1 minute.
+
+- The page won't open at http://127.0.0.1:8765:
+    CSO Live isn't running. Double-click start.bat.
+
+- Anything else: send a screenshot of the error to the person who shared this.
