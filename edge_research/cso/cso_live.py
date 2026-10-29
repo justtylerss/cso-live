@@ -1801,7 +1801,14 @@ def serve(port=PORT):
     threading.Thread(target=watch, daemon=True).start()
     threading.Thread(target=watch_map, daemon=True).start()
     print(f'CSO watcher on http://127.0.0.1:{port}  (live read every minute -> {LATEST}.txt / .json)')
-    ThreadingHTTPServer(('127.0.0.1', port), H).serve_forever()
+    host = '127.0.0.1'
+    if '--lan' in sys.argv:  # phone on the same Wi-Fi; no login, so home network only, never port-forward it
+        import socket
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(('8.8.8.8', 80))  # no packet sent: just picks the LAN address
+            print(f'Phone (same Wi-Fi): http://{s.getsockname()[0]}:{port}')
+        host = '0.0.0.0'
+    ThreadingHTTPServer((host, port), H).serve_forever()
 
 
 def via_server(argv):

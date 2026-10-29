@@ -85,6 +85,18 @@ EVERY TRADING DAY
 All times are Central (CT), whatever time zone your PC is set to.
 
 
+ON YOUR PHONE (optional, same Wi-Fi only)
+-----------------------------------------
+The PC does all the work; the phone only shows the page.
+1. Stop the watcher (update.bat does this), then in Command Prompt, from the cso-live folder:
+       cd edge_research\cso
+       start "" ..\..\.venv\Scripts\pythonw -I cso_live.py --serve --lan
+2. If Windows asks whether to allow Python on networks, click Allow.
+3. On the phone, open  http://<your PC's address>:8765
+   (find the address with  ipconfig , the "IPv4 Address" line, e.g. 192.168.1.50).
+There is no login, so never forward this port on your router.
+
+
 HOW TO READ AN ANSWER
 ---------------------
 Each answer has a chart and a table:

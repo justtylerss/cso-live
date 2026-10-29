@@ -167,7 +167,11 @@ function liveChart(el, d) {  // d: {bars:[[t,o,h,l,c]], now_t, px, end_t, legend
     });
     const candles = chart.addCandlestickSeries({ upColor: '#26a69a', downColor: '#ef5350', borderVisible: false,
       wickUpColor: '#26a69aaa', wickDownColor: '#ef5350aa', priceLineColor: '#2962ff', priceLineStyle: 2 });
-    c = { chart, candles, extra: [], lines: [], fitted: false };
+    c = { chart, candles, extra: [], lines: [], free: false };
+    // follow the latest bar until the user drags/scrolls the chart; double-click snaps back to now
+    ['pointerdown', 'wheel'].forEach(ev => el.addEventListener(ev, () => { c.free = true }, { passive: true }));
+    el.addEventListener('dblclick', () => { c.free = false; pin(c) });
+    new ResizeObserver(() => { if (!c.free && el.clientWidth) pin(c) }).observe(el);  // built while hidden: pin once it has a size
     charts.set(el, c);
   }
   c.lines.forEach(l => c.candles.removePriceLine(l)); c.lines = [];
@@ -191,11 +195,12 @@ function liveChart(el, d) {  // d: {bars:[[t,o,h,l,c]], now_t, px, end_t, legend
     c.extra.push(s);
   });
   el.querySelector('.lgd').innerHTML = d.legend || '';
-  if (!c.fitted) {  // the last 2 hours of bars plus the time ahead fill the box; the price scale fits what's visible
-    c.chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, d.bars.length - 120), to: d.bars.length + fut.length });
-    c.fitted = true;
-  }
+  c.nb = d.bars.length; c.nf = fut.length;
+  if (!c.free) pin(c);
   return true;
+}
+function pin(c) {  // the last 2 hours of bars plus the time ahead fill the box; after layout, or a 0-width chart drops it
+  requestAnimationFrame(() => c.chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, c.nb - 120), to: c.nb + c.nf }));
 }
 
 const $=s=>document.querySelector(s), esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
